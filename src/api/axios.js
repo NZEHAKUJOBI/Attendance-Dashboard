@@ -1,8 +1,12 @@
 import axios from "axios";
-import env from "react-dotenv";
+
+// Use Vite environment variable (VITE_API_URL) when available.
+// In development, set VITE_API_URL in a .env file at project root, e.g.:
+// VITE_API_URL=http://localhost:5044/api
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5044/api";
 
 const api = axios.create({
-  baseURL: env.API_URL || "https://attendancereportservice.onrender.com/api", // Update this to your backend URL
+  baseURL: API_URL,
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",
