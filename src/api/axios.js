@@ -3,7 +3,9 @@ import axios from "axios";
 // Use Vite environment variable (VITE_API_URL) when available.
 // In development, set VITE_API_URL in a .env file at project root, e.g.:
 // VITE_API_URL=http://localhost:5044/api
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5044/api";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  "https://attendancereportservice.onrender.com/api";
 
 const api = axios.create({
   baseURL: API_URL,
