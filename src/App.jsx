@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 import Charts from "./pages/Charts";
 import Reports from "./pages/Reports";
 import DeviceHealth from "./pages/DeviceHealth";
+import AdHocManagement from "./pages/AdHocManagement";
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth();
@@ -60,6 +61,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <DeviceHealth />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/adhoc-management"
+            element={
+              <PrivateRoute>
+                <AdHocManagement />
               </PrivateRoute>
             }
           />

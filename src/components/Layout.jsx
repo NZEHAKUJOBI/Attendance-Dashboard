@@ -37,6 +37,12 @@ const Layout = ({ children }) => {
       icon: "📱",
       current: location.pathname === "/device-health",
     },
+    {
+      name: "Ad Hoc Management",
+      href: "/adhoc-management",
+      icon: "⚡",
+      current: location.pathname === "/adhoc-management",
+    },
   ];
 
   return (
