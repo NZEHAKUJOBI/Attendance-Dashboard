@@ -11,6 +11,9 @@ export default function Reports() {
   const [facilitySummary, setFacilitySummary] = useState([]);
   const [facilityReport, setFacilityReport] = useState([]);
   const [userTimesheet, setUserTimesheet] = useState([]);
+  const [facilityTimesheet, setFacilityTimesheet] = useState(null);
+  const [facilities, setFacilities] = useState([]);
+  const [users, setUsers] = useState([]);
 
   // Filter states
   const [selectedFacility, setSelectedFacility] = useState("");
@@ -23,7 +26,34 @@ export default function Reports() {
 
   useEffect(() => {
     fetchFacilitySummary();
+    fetchFacilities();
   }, []);
+
+  useEffect(() => {
+    if (selectedFacility) {
+      fetchUsersByFacility();
+    }
+  }, [selectedFacility]);
+
+  const fetchFacilities = async () => {
+    try {
+      const response = await api.get("/users/facilities");
+      setFacilities(response.data);
+    } catch (err) {
+      console.error("Error fetching facilities:", err);
+    }
+  };
+
+  const fetchUsersByFacility = async () => {
+    try {
+      const response = await api.get(
+        `/users/facility/${encodeURIComponent(selectedFacility)}`
+      );
+      setUsers(response.data);
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    }
+  };
 
   const fetchFacilitySummary = async () => {
     try {
@@ -61,9 +91,65 @@ export default function Reports() {
     }
   };
 
+  const fetchFacilityTimesheet = async () => {
+    if (!selectedFacility) {
+      setError("Please select a facility first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get(
+        `/reports/facility-timesheet-data/${encodeURIComponent(
+          selectedFacility
+        )}/${selectedYear}/${selectedMonth}`
+      );
+      setFacilityTimesheet(response.data);
+    } catch (err) {
+      console.error("Error fetching facility timesheet:", err);
+      setError("Failed to load facility timesheet.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const downloadFacilityTimesheetPDF = async () => {
+    if (!selectedFacility) {
+      setError("Please select a facility first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await api.get(
+        `/reports/facility-timesheet-pdf/${encodeURIComponent(
+          selectedFacility
+        )}/${selectedYear}/${selectedMonth}`,
+        { responseType: "blob" }
+      );
+
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Facility_Timesheet_${selectedFacility}_${selectedYear}_${selectedMonth}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error("Error downloading facility timesheet PDF:", err);
+      setError("Failed to download facility timesheet PDF.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchUserTimesheet = async () => {
     if (!selectedUserId) {
-      setError("Please enter a valid User ID.");
+      setError("Please select a user first.");
       return;
     }
 
@@ -84,7 +170,7 @@ export default function Reports() {
 
   const downloadUserTimesheetPDF = async () => {
     if (!selectedUserId) {
-      setError("Please enter a valid User ID.");
+      setError("Please select a user first.");
       return;
     }
 
@@ -115,7 +201,7 @@ export default function Reports() {
 
   const exportFacilitySummaryPDF = () => {
     const doc = new jsPDF();
-    doc.text("Facility Summary Report", 14, 10);
+    doc.text("Staff Attendance Summary Report", 14, 10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 20);
 
     const tableData = facilitySummary.map((facility) => [
@@ -133,10 +219,10 @@ export default function Reports() {
       head: [
         [
           "Facility",
-          "Total",
-          "Success",
-          "Failed",
-          "Success Rate",
+          "Total Staff",
+          "Attended Today",
+          "Missed Today",
+          "Attendance Rate",
           "Last Check-in",
         ],
       ],
@@ -144,7 +230,9 @@ export default function Reports() {
       startY: 30,
     });
 
-    doc.save(`Facility_Summary_${new Date().toISOString().split("T")[0]}.pdf`);
+    doc.save(
+      `Staff_Attendance_Summary_${new Date().toISOString().split("T")[0]}.pdf`
+    );
   };
 
   const exportFacilityReportPDF = () => {
@@ -207,6 +295,7 @@ export default function Reports() {
   const tabs = [
     { id: "facility-summary", label: "Facility Summary", icon: "🏢" },
     { id: "facility-report", label: "Facility Report", icon: "📊" },
+    { id: "facility-timesheet", label: "Facility Timesheet", icon: "📋" },
     { id: "user-timesheet", label: "User Timesheet", icon: "👤" },
   ];
 
@@ -261,7 +350,7 @@ export default function Reports() {
         {activeTab === "facility-summary" && (
           <div className="space-y-6">
             <Card
-              title="Facility Summary Report"
+              title="Staff Attendance Summary Report"
               subtitle="Overview of all facilities"
               action={
                 <button
@@ -286,16 +375,16 @@ export default function Reports() {
                           Facility
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Total
+                          Total Staff
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Success
+                          Attended Today
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Failed
+                          Missed Today
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Success Rate
+                          Attendance Rate
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Last Check-in
@@ -506,6 +595,203 @@ export default function Reports() {
           </div>
         )}
 
+        {/* Facility Timesheet Tab */}
+        {activeTab === "facility-timesheet" && (
+          <div className="space-y-6">
+            <Card
+              title="Facility Timesheet"
+              subtitle="Timesheet for all users in a facility"
+            >
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Facility
+                  </label>
+                  <select
+                    value={selectedFacility}
+                    onChange={(e) => setSelectedFacility(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a facility</option>
+                    {facilities.map((facility) => (
+                      <option key={facility} value={facility}>
+                        {facility}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Year
+                  </label>
+                  <select
+                    value={selectedYear}
+                    onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {years.map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Month
+                  </label>
+                  <select
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    {months.map((month) => (
+                      <option key={month.value} value={month.value}>
+                        {month.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex space-x-2 items-end">
+                  <button
+                    onClick={fetchFacilityTimesheet}
+                    disabled={!selectedFacility || loading}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+                  >
+                    Generate Report
+                  </button>
+                  {facilityTimesheet && (
+                    <button
+                      onClick={downloadFacilityTimesheetPDF}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                    >
+                      Export PDF
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <LoadingSpinner />
+                </div>
+              ) : facilityTimesheet ? (
+                <div className="space-y-6">
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                      {facilityTimesheet.facility} -{" "}
+                      {facilityTimesheet.monthName} {facilityTimesheet.year}
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium">Total Users:</span>{" "}
+                        {facilityTimesheet.totalUsers}
+                      </div>
+                      <div>
+                        <span className="font-medium">Users with Records:</span>{" "}
+                        {facilityTimesheet.usersWithRecords}
+                      </div>
+                      <div>
+                        <span className="font-medium">
+                          Users without Records:
+                        </span>{" "}
+                        {facilityTimesheet.usersWithoutRecords}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            User Name
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Designation
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Total Days
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Successful
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Failed
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Attendance Rate
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {facilityTimesheet.userTimesheets.map(
+                          (userSheet, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {userSheet.user.fullName}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {userSheet.user.designation}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {userSheet.summary.totalDays}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
+                                {userSheet.summary.successfulDays}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
+                                {userSheet.summary.failedDays}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span
+                                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                    userSheet.summary.totalDays > 0
+                                      ? (userSheet.summary.successfulDays /
+                                          userSheet.summary.totalDays) *
+                                          100 >=
+                                        90
+                                        ? "bg-green-100 text-green-800"
+                                        : (userSheet.summary.successfulDays /
+                                            userSheet.summary.totalDays) *
+                                            100 >=
+                                          70
+                                        ? "bg-yellow-100 text-yellow-800"
+                                        : "bg-red-100 text-red-800"
+                                      : "bg-gray-100 text-gray-800"
+                                  }`}
+                                >
+                                  {userSheet.summary.totalDays > 0
+                                    ? (
+                                        (userSheet.summary.successfulDays /
+                                          userSheet.summary.totalDays) *
+                                        100
+                                      ).toFixed(1)
+                                    : "0"}
+                                  %
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : selectedFacility ? (
+                <div className="text-center py-8 text-gray-500">
+                  Select a facility and click "Generate Report" to view
+                  timesheet data
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  Select a facility to view timesheet data
+                </div>
+              )}
+            </Card>
+          </div>
+        )}
+
         {/* User Timesheet Tab */}
         {activeTab === "user-timesheet" && (
           <div className="space-y-6">
@@ -513,18 +799,41 @@ export default function Reports() {
               title="User Timesheet"
               subtitle="Individual user attendance records"
             >
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    User ID
+                    Facility
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Enter User ID (GUID)"
+                  <select
+                    value={selectedFacility}
+                    onChange={(e) => setSelectedFacility(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Select a facility</option>
+                    {facilities.map((facility) => (
+                      <option key={facility} value={facility}>
+                        {facility}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    User
+                  </label>
+                  <select
                     value={selectedUserId}
                     onChange={(e) => setSelectedUserId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
+                    disabled={!selectedFacility}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
+                  >
+                    <option value="">Select a user</option>
+                    {users.map((user) => (
+                      <option key={user.id} value={user.id}>
+                        {user.fullName} - {user.designation}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -647,7 +956,7 @@ export default function Reports() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-500">
-                  Enter a User ID and click "Generate" to view timesheet
+                  Select a facility and user to view timesheet
                 </div>
               )}
             </Card>
