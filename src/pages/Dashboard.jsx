@@ -44,8 +44,10 @@ export default function Dashboard() {
     totalFacilities: 0,
     totalDevices: 0,
     onlineDevices: 0,
-    totalAttendance: 0,
-    successRate: 0,
+    totalStaff: 0,
+    attendedToday: 0,
+    attendanceRate: 0,
+    totalAttendanceRecords: 0,
   });
 
   // Date state for analytics
@@ -74,31 +76,41 @@ export default function Dashboard() {
         setDeviceStatus(healthData);
         setAnalytics(analyticsData);
 
-        // Calculate dashboard statistics
+        // Calculate dashboard statistics with new data structure
         const totalFacilities = facilityData.length;
         const totalDevices = healthData.length;
         const onlineDevices = healthData.filter(
           (device) => device.isOnline
         ).length;
-        const totalAttendance = facilityData.reduce(
-          (sum, facility) => sum + facility.total,
+
+        // New calculations based on updated backend
+        const totalStaff = facilityData.reduce(
+          (sum, facility) => sum + facility.total, // Total staff from Staff table
           0
         );
-        const totalSuccess = facilityData.reduce(
-          (sum, facility) => sum + facility.success,
+
+        const attendedToday = facilityData.reduce(
+          (sum, facility) => sum + facility.success, // Successful check-ins today
           0
         );
-        const successRate =
-          totalAttendance > 0
-            ? ((totalSuccess / totalAttendance) * 100).toFixed(1)
-            : 0;
+
+        const totalAttendanceRecords = facilityData.reduce(
+          (sum, facility) => sum + (facility.success + facility.failed), // Total attendance attempts
+          0
+        );
+
+        // Attendance rate: (Attended today / Total staff) * 100
+        const attendanceRate =
+          totalStaff > 0 ? ((attendedToday / totalStaff) * 100).toFixed(1) : 0;
 
         setDashboardStats({
           totalFacilities,
           totalDevices,
           onlineDevices,
-          totalAttendance,
-          successRate,
+          totalStaff,
+          attendedToday,
+          attendanceRate,
+          totalAttendanceRecords,
         });
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
@@ -117,7 +129,7 @@ export default function Dashboard() {
 
   const exportFacilityPDF = () => {
     const doc = new jsPDF();
-    doc.text("Facility Attendance Summary Report", 14, 10);
+    doc.text("Staff Attendance Summary Report", 14, 10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 20);
 
     const tableData = facilitySummary.map((facility) => [
@@ -135,10 +147,10 @@ export default function Dashboard() {
       head: [
         [
           "Facility",
-          "Total",
-          "Success",
-          "Failed",
-          "Success Rate",
+          "Total Staff",
+          "Attended Today",
+          "Missed Today",
+          "Attendance Rate",
           "Last Check-in",
         ],
       ],
@@ -146,7 +158,7 @@ export default function Dashboard() {
       startY: 30,
     });
 
-    doc.save(`Facility_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+    doc.save(`Staff_Attendance_${new Date().toISOString().split("T")[0]}.pdf`);
   };
 
   const exportDeviceStatusPDF = () => {
@@ -188,24 +200,31 @@ export default function Dashboard() {
     labels: facilitySummary.map((f) => f.facility),
     datasets: [
       {
-        label: "Total Attendance",
+        label: "Total Staff",
         data: facilitySummary.map((f) => f.total),
         backgroundColor: "#3B82F6",
         borderColor: "#1D4ED8",
         borderWidth: 1,
       },
       {
-        label: "Successful",
+        label: "Attended Today",
         data: facilitySummary.map((f) => f.success),
         backgroundColor: "#10B981",
         borderColor: "#059669",
+        borderWidth: 1,
+      },
+      {
+        label: "Missed Today",
+        data: facilitySummary.map((f) => f.failed),
+        backgroundColor: "#EF4444",
+        borderColor: "#DC2626",
         borderWidth: 1,
       },
     ],
   };
 
   const successRateData = {
-    labels: ["Successful", "Failed"],
+    labels: ["Attended Today", "Missed Today"],
     datasets: [
       {
         data: [
@@ -300,15 +319,16 @@ export default function Dashboard() {
             color="green"
           />
           <StatCard
-            title="Total Attendance"
-            value={dashboardStats.totalAttendance.toLocaleString()}
-            subtitle="This month"
+            title="Total Staff"
+            value={dashboardStats.totalStaff.toLocaleString()}
+            subtitle="Registered staff"
             icon={<span className="text-2xl">👥</span>}
             color="blue"
           />
           <StatCard
-            title="Success Rate"
-            value={`${dashboardStats.successRate}%`}
+            title="Attended Today"
+            value={`${dashboardStats.attendedToday}/${dashboardStats.totalStaff}`}
+            subtitle={`${dashboardStats.attendanceRate}% attendance rate`}
             icon={<span className="text-2xl">✅</span>}
             color="green"
           />
@@ -318,8 +338,8 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="lg:col-span-2">
             <Card
-              title="Facility Attendance Overview"
-              subtitle="Total and successful attendance by facility"
+              title="Staff Attendance by Facility"
+              subtitle="Total staff vs daily attendance per facility"
               action={
                 <button
                   onClick={exportFacilityPDF}
@@ -355,7 +375,10 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-6">
-            <Card title="Overall Success Rate" subtitle="Attendance processing">
+            <Card
+              title="Today's Attendance Rate"
+              subtitle="Staff attendance breakdown"
+            >
               {facilitySummary.length > 0 ? (
                 <Doughnut
                   data={successRateData}
@@ -401,7 +424,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <Card
             title="Facility Performance"
-            subtitle="Detailed attendance statistics"
+            subtitle="Staff count and daily attendance"
           >
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -411,10 +434,13 @@ export default function Dashboard() {
                       Facility
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total
+                      Total Staff
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Success Rate
+                      Attended Today
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Attendance Rate
                     </th>
                   </tr>
                 </thead>
@@ -426,6 +452,9 @@ export default function Dashboard() {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         {facility.total}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {facility.success}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         <span

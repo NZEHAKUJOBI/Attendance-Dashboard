@@ -3,7 +3,7 @@ import api from "../api/axios";
 import Card from "../components/Card";
 import LoadingSpinner from "../components/LoadingSpinner";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export default function Reports() {
   const [loading, setLoading] = useState(false);
@@ -129,7 +129,7 @@ export default function Reports() {
         : "N/A",
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [
         [
           "Facility",
@@ -167,7 +167,7 @@ export default function Reports() {
       record.message || "",
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       head: [
         [
           "Name",
