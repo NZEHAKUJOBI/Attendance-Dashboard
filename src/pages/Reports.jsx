@@ -58,7 +58,7 @@ export default function Reports() {
   const fetchFacilitySummary = async () => {
     try {
       setLoading(true);
-      const response = await api.get("/reports/facility-summary");
+      const response = await api.get("/reports/facility-today-summary");
       setFacilitySummary(response.data);
     } catch (err) {
       console.error("Error fetching facility summary:", err);
@@ -207,9 +207,9 @@ export default function Reports() {
     const tableData = facilitySummary.map((facility) => [
       facility.facility,
       facility.total.toString(),
-      facility.success.toString(),
-      facility.failed.toString(),
-      `${((facility.success / facility.total) * 100).toFixed(1)}%`,
+      facility.checkedIn.toString(),
+      facility.notCheckedIn.toString(),
+      `${facility.attendanceRate}%`,
       facility.lastCheckIn
         ? new Date(facility.lastCheckIn).toLocaleString()
         : "N/A",
@@ -220,8 +220,8 @@ export default function Reports() {
         [
           "Facility",
           "Total Staff",
-          "Attended Today",
-          "Missed Today",
+          "Checked In Today",
+          "Not Checked In",
           "Attendance Rate",
           "Last Check-in",
         ],
@@ -378,10 +378,10 @@ export default function Reports() {
                           Total Staff
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Attended Today
+                          Checked In Today
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Missed Today
+                          Not Checked In
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Attendance Rate
@@ -401,27 +401,22 @@ export default function Reports() {
                             {facility.total}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600">
-                            {facility.success}
+                            {facility.checkedIn}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600">
-                            {facility.failed}
+                            {facility.notCheckedIn}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <span
                               className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                (facility.success / facility.total) * 100 >= 90
+                                facility.attendanceRate >= 90
                                   ? "bg-green-100 text-green-800"
-                                  : (facility.success / facility.total) * 100 >=
-                                    70
+                                  : facility.attendanceRate >= 70
                                   ? "bg-yellow-100 text-yellow-800"
                                   : "bg-red-100 text-red-800"
                               }`}
                             >
-                              {(
-                                (facility.success / facility.total) *
-                                100
-                              ).toFixed(1)}
-                              %
+                              {facility.attendanceRate.toFixed(1)}%
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
