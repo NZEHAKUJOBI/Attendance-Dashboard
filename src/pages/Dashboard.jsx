@@ -63,7 +63,7 @@ export default function Dashboard() {
 
         // Fetch all data in parallel
         const [facilityRes, healthRes, analyticsRes] = await Promise.all([
-          api.get("/reports/facility-summary"),
+          api.get("/reports/facility-today-summary"),
           api.get("/health/status"),
           api.get(`/reports/analytics/${selectedYear}/${selectedMonth}`),
         ]);
@@ -83,19 +83,19 @@ export default function Dashboard() {
           (device) => device.isOnline
         ).length;
 
-        // New calculations based on updated backend
+        // New calculations based on updated backend (facility-today-summary)
         const totalStaff = facilityData.reduce(
           (sum, facility) => sum + facility.total, // Total staff from Staff table
           0
         );
 
         const attendedToday = facilityData.reduce(
-          (sum, facility) => sum + facility.success, // Successful check-ins today
+          (sum, facility) => sum + facility.checkedIn, // Unique users who checked in today
           0
         );
 
         const totalAttendanceRecords = facilityData.reduce(
-          (sum, facility) => sum + (facility.success + facility.failed), // Total attendance attempts
+          (sum, facility) => sum + facility.totalCheckIns, // Total check-in attempts (including multiple per user)
           0
         );
 
@@ -135,9 +135,9 @@ export default function Dashboard() {
     const tableData = facilitySummary.map((facility) => [
       facility.facility,
       facility.total.toString(),
-      facility.success.toString(),
-      facility.failed.toString(),
-      `${((facility.success / facility.total) * 100).toFixed(1)}%`,
+      facility.checkedIn.toString(),
+      facility.notCheckedIn.toString(),
+      `${facility.attendanceRate}%`,
       facility.lastCheckIn
         ? new Date(facility.lastCheckIn).toLocaleString()
         : "N/A",
@@ -208,14 +208,14 @@ export default function Dashboard() {
       },
       {
         label: "Attended Today",
-        data: facilitySummary.map((f) => f.success),
+        data: facilitySummary.map((f) => f.checkedIn),
         backgroundColor: "#10B981",
         borderColor: "#059669",
         borderWidth: 1,
       },
       {
-        label: "Missed Today",
-        data: facilitySummary.map((f) => f.failed),
+        label: "Not Checked In",
+        data: facilitySummary.map((f) => f.notCheckedIn),
         backgroundColor: "#EF4444",
         borderColor: "#DC2626",
         borderWidth: 1,
@@ -224,12 +224,12 @@ export default function Dashboard() {
   };
 
   const successRateData = {
-    labels: ["Attended Today", "Missed Today"],
+    labels: ["Checked In Today", "Not Checked In"],
     datasets: [
       {
         data: [
-          facilitySummary.reduce((sum, f) => sum + f.success, 0),
-          facilitySummary.reduce((sum, f) => sum + f.failed, 0),
+          facilitySummary.reduce((sum, f) => sum + f.checkedIn, 0),
+          facilitySummary.reduce((sum, f) => sum + f.notCheckedIn, 0),
         ],
         backgroundColor: ["#10B981", "#EF4444"],
         borderColor: ["#059669", "#DC2626"],
@@ -454,22 +454,19 @@ export default function Dashboard() {
                         {facility.total}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {facility.success}
+                        {facility.checkedIn}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                         <span
                           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            (facility.success / facility.total) * 100 >= 90
+                            facility.attendanceRate >= 90
                               ? "bg-green-100 text-green-800"
-                              : (facility.success / facility.total) * 100 >= 70
+                              : facility.attendanceRate >= 70
                               ? "bg-yellow-100 text-yellow-800"
                               : "bg-red-100 text-red-800"
                           }`}
                         >
-                          {((facility.success / facility.total) * 100).toFixed(
-                            1
-                          )}
-                          %
+                          {facility.attendanceRate.toFixed(1)}%
                         </span>
                       </td>
                     </tr>
